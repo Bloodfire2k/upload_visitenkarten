@@ -187,11 +187,11 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD Format
             formData.append('created', today);
             
-            // Keinen Eigentümer setzen (wie bei direkten Scans) - explizit null
-            formData.append('owner', null);
+            // Keinen Eigentümer setzen (wie bei direkten Scans) - Feld komplett weglassen
+            // formData.append('owner', null);
             
-            // Tags werden automatisch durch Paperless-Regeln gesetzt
-            // formData.append('tags', 'Visitenkarte');
+            // Beide Tags für N8N-Workflow setzen
+            formData.append('tags', 'Visitenkarte,Visitenkarte_übertragen');
             
             console.log('📅 Setting explicit creation date for N8N compatibility:', today);
 
