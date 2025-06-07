@@ -45,91 +45,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Verbesserte Visitenkarten-Erkennung und Zuschnitt
-async function detectAndCropCard(imagePath) {
-    console.log('🔍 Starting enhanced smart card detection...');
-    
-    try {
-        // Lade das Bild und analysiere es
-        const image = sharp(imagePath);
-        const metadata = await image.metadata();
-        console.log('📏 Image dimensions:', { width: metadata.width, height: metadata.height });
 
-        // Schritt 1: Mehrere Trimming-Strategien versuchen
-        console.log('✂️ Trying multiple cropping strategies...');
-        
-        let bestResult = null;
-        const strategies = [
-            // Strategie 1: Aggressives Trimming für weiße Hintergründe
-            { background: '#ffffff', threshold: 10, name: 'White background (aggressive)' },
-            // Strategie 2: Moderates Trimming für leicht graue Hintergründe  
-            { background: '#f8f8f8', threshold: 25, name: 'Light gray background' },
-            // Strategie 3: Konservatives Trimming für gemischte Hintergründe
-            { background: '#ffffff', threshold: 50, name: 'White background (conservative)' }
-        ];
-
-        for (const strategy of strategies) {
-            try {
-                console.log(`🎯 Trying strategy: ${strategy.name}`);
-                const trimmed = await sharp(imagePath)
-                    .trim({
-                        background: strategy.background,
-                        threshold: strategy.threshold
-                    })
-                    .png()
-                    .toBuffer();
-                
-                // Prüfe ob das Ergebnis sinnvoll ist (nicht zu klein)
-                const trimmedMetadata = await sharp(trimmed).metadata();
-                const sizeReduction = (metadata.width * metadata.height) / (trimmedMetadata.width * trimmedMetadata.height);
-                
-                console.log(`📊 Size reduction: ${sizeReduction.toFixed(2)}x, New size: ${trimmedMetadata.width}x${trimmedMetadata.height}`);
-                
-                // Akzeptiere das Ergebnis wenn es zwischen 1.5x und 20x kleiner ist
-                if (sizeReduction >= 1.5 && sizeReduction <= 20) {
-                    console.log(`✅ Strategy "${strategy.name}" successful!`);
-                    bestResult = trimmed;
-                    break;
-                }
-            } catch (strategyError) {
-                console.log(`❌ Strategy "${strategy.name}" failed:`, strategyError.message);
-            }
-        }
-
-        // Fallback: Wenn kein Trimming funktioniert, verwende Original
-        if (!bestResult) {
-            console.log('🔄 All trimming strategies failed, using original with preprocessing...');
-            bestResult = await sharp(imagePath).png().toBuffer();
-        }
-
-        // Schritt 2: Bildoptimierung
-        console.log('🎨 Applying image enhancement...');
-        const enhanced = await sharp(bestResult)
-            .normalize() // Automatische Kontrastanpassung
-            .sharpen({ sigma: 1.5, m1: 1, m2: 2 }) // Stärkere Schärfung
-            .gamma(1.1) // Leichte Gamma-Korrektur
-            .png({ quality: 100 })
-            .toBuffer();
-
-        console.log('✅ Enhanced smart card detection completed successfully');
-        return enhanced;
-
-    } catch (error) {
-        console.log('⚠️ Card detection failed completely, using optimized original:', error.message);
-        // Fallback: Verwende original Bild mit Basisoptimierung
-        try {
-            return await sharp(imagePath)
-                .normalize()
-                .sharpen()
-                .gamma(1.1)
-                .png()
-                .toBuffer();
-        } catch (fallbackError) {
-            console.log('❌ Even fallback failed, using raw original');
-            return await sharp(imagePath).png().toBuffer();
-        }
-    }
-}
 
 // Convert image to PDF
 async function convertImageToPdf(imagePath, originalName) {
@@ -137,34 +53,29 @@ async function convertImageToPdf(imagePath, originalName) {
     try {
         const pdfDoc = await PDFDocument.create();
         
-        // Schritt 1: Intelligente Kartenerkennung und Zuschnitt
-        console.log('🤖 Performing smart card detection...');
-        const croppedCardBuffer = await detectAndCropCard(imagePath);
-        
-        console.log('📐 Analyzing cropped card dimensions...');
-        // Analysiere die zugeschnittene Karte
-        const cardImage = sharp(croppedCardBuffer);
-        const cardMetadata = await cardImage.metadata();
-        console.log('Cropped card size:', { width: cardMetadata.width, height: cardMetadata.height });
+        // Direkte Bildanalyse ohne komplexe Dokumentenerkennung
+        console.log('📐 Analyzing image dimensions...');
+        const imageMetadata = await sharp(imagePath).metadata();
+        console.log('Original image size:', { width: imageMetadata.width, height: imageMetadata.height });
         
         // Bestimme eine hochauflösende Größe (mindestens 1200px in der längeren Seite)
         const minSize = 1200;
-        const aspectRatio = cardMetadata.width / cardMetadata.height;
+        const aspectRatio = imageMetadata.width / imageMetadata.height;
         let targetWidth, targetHeight;
         
-        if (cardMetadata.width > cardMetadata.height) {
-            targetWidth = Math.max(minSize, cardMetadata.width);
+        if (imageMetadata.width > imageMetadata.height) {
+            targetWidth = Math.max(minSize, imageMetadata.width);
             targetHeight = Math.round(targetWidth / aspectRatio);
         } else {
-            targetHeight = Math.max(minSize, cardMetadata.height);
+            targetHeight = Math.max(minSize, imageMetadata.height);
             targetWidth = Math.round(targetHeight * aspectRatio);
         }
         
         console.log('📊 Target size for PDF:', { width: targetWidth, height: targetHeight });
         
-        // Finaler Schritt: Hochqualitative PNG-Ausgabe
-        console.log('🎯 Creating high-quality PNG...');
-        const pngBuffer = await sharp(croppedCardBuffer)
+        // Einfache, hochqualitative PNG-Ausgabe ohne komplexe Verarbeitung
+        console.log('🎯 Creating clean, high-quality PNG...');
+        const pngBuffer = await sharp(imagePath)
             .flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
             .resize(targetWidth, targetHeight, { 
                 fit: 'inside',
