@@ -1,4 +1,9 @@
-require('dotenv').config({ path: '.env.local' });
+// Environment variables werden von Coolify direkt bereitgestellt
+try {
+    require('dotenv').config({ path: '.env.local' });
+} catch (e) {
+    console.log('dotenv not available, using environment variables directly');
+}
 const express = require('express');
 const multer = require('multer');
 const axios = require('axios');

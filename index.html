@@ -70,7 +70,6 @@
                 <h1 class="text-4xl font-bold mb-2" style="background: linear-gradient(135deg, #2b64b1 0%, #4285d1 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
                     Visitenkarten Upload
                 </h1>
-                <p class="text-gray-600">Digitalisierung für Paperless-ngx</p>
             </div>
             
             <div id="dropzone" class="border-2 border-dashed dropzone-hover rounded-xl p-8 text-center cursor-pointer bg-white/70 backdrop-blur-sm card-shadow">
@@ -212,6 +211,14 @@
         // File Input Handler
         fileInput.addEventListener('change', (e) => {
             handleFiles(e.target.files);
+        });
+
+        // Dropzone Click Handler - macht die gesamte Dropzone klickbar
+        dropzone.addEventListener('click', (e) => {
+            // Verhindere Doppelklicks wenn bereits auf dem Label geklickt wurde
+            if (e.target.tagName !== 'INPUT') {
+                fileInput.click();
+            }
         });
 
         function handleFiles(newFiles) {
