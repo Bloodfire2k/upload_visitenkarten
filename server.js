@@ -45,32 +45,55 @@ async function convertImageToPdf(imagePath, originalName) {
     console.log('Starting image conversion for:', originalName);
     try {
         const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([595, 842]); // A4 size
         
         console.log('Converting image to PNG format...');
-        // Konvertiere zuerst in PNG mit weißem Hintergrund
+        // Erhalte die originale Bildgröße
+        const imageMetadata = await sharp(imagePath).metadata();
+        console.log('Original image size:', { width: imageMetadata.width, height: imageMetadata.height });
+        
+        // Bestimme eine hochauflösende Größe (mindestens 1200px in der längeren Seite)
+        const minSize = 1200;
+        const aspectRatio = imageMetadata.width / imageMetadata.height;
+        let targetWidth, targetHeight;
+        
+        if (imageMetadata.width > imageMetadata.height) {
+            targetWidth = Math.max(minSize, imageMetadata.width);
+            targetHeight = Math.round(targetWidth / aspectRatio);
+        } else {
+            targetHeight = Math.max(minSize, imageMetadata.height);
+            targetWidth = Math.round(targetHeight * aspectRatio);
+        }
+        
+        console.log('Target size for PDF:', { width: targetWidth, height: targetHeight });
+        
+        // Konvertiere mit hoher Qualität zu PNG
         const pngBuffer = await sharp(imagePath)
             .flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
-            .resize(595, 842, { 
-                fit: 'contain',
+            .resize(targetWidth, targetHeight, { 
+                fit: 'inside',
+                withoutEnlargement: false,
                 background: { r: 255, g: 255, b: 255, alpha: 1 }
             })
-            .png()
+            .png({ 
+                quality: 100,
+                compressionLevel: 0,
+                palette: false
+            })
             .toBuffer();
 
         console.log('Embedding PNG into PDF...');
         const image = await pdfDoc.embedPng(pngBuffer);
         
+        // Erstelle PDF-Seite in der Größe des Bildes
         const { width, height } = image.scale(1);
-        const maxWidth = page.getWidth();
-        const maxHeight = page.getHeight();
-        const scale = Math.min(maxWidth / width, maxHeight / height);
+        const page = pdfDoc.addPage([width, height]);
         
+        // Zeichne das Bild in Originalgröße
         page.drawImage(image, {
-            x: (maxWidth - width * scale) / 2,
-            y: (maxHeight - height * scale) / 2,
-            width: width * scale,
-            height: height * scale
+            x: 0,
+            y: 0,
+            width: width,
+            height: height
         });
 
         console.log('Saving PDF...');
