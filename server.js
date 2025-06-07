@@ -190,8 +190,9 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             // Keinen Eigentümer setzen (wie bei direkten Scans) - Feld komplett weglassen
             // formData.append('owner', null);
             
-            // Beide Tags für N8N-Workflow setzen
-            formData.append('tags', 'Visitenkarte,Visitenkarte_übertragen');
+            // Beide Tag-IDs für N8N-Workflow setzen (müssen separat hinzugefügt werden)
+            formData.append('tags', '1'); // Visitenkarte Tag-ID  
+            formData.append('tags', '2'); // Visitenkarte_übertragen Tag-ID
             
             console.log('📅 Setting explicit creation date for N8N compatibility:', today);
 
