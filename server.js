@@ -187,8 +187,8 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD Format
             formData.append('created', today);
             
-            // Keinen Eigentümer setzen (wie bei direkten Scans)
-            formData.append('owner', '');
+            // Keinen Eigentümer setzen (wie bei direkten Scans) - explizit null
+            formData.append('owner', null);
             
             // Tags werden automatisch durch Paperless-Regeln gesetzt
             // formData.append('tags', 'Visitenkarte');
