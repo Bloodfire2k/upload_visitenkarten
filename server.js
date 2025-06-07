@@ -40,34 +40,82 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Visitenkarten-Erkennung und Zuschnitt
+async function detectAndCropCard(imagePath) {
+    console.log('🔍 Starting smart card detection...');
+    
+    try {
+        // Lade das Bild und analysiere es
+        const image = sharp(imagePath);
+        const metadata = await image.metadata();
+        console.log('📏 Image dimensions:', { width: metadata.width, height: metadata.height });
+
+        // Schritt 1: Automatisches Trimming (entfernt überschüssigen Hintergrund)
+        console.log('✂️ Performing automatic background removal...');
+        const trimmed = await sharp(imagePath)
+            .trim({
+                background: '#ffffff', // Weißer Hintergrund
+                threshold: 30 // Toleranz für Trimming (niedrigerer Wert = aggressiver)
+            })
+            .png()
+            .toBuffer();
+
+        // Schritt 2: Kontrast und Schärfe optimieren
+        console.log('🎨 Optimizing contrast and sharpness...');
+        const optimized = await sharp(trimmed)
+            .normalize() // Automatische Kontrastanpassung
+            .sharpen({ sigma: 1, m1: 1, m2: 2 }) // Schärfung
+            .png({ quality: 100 })
+            .toBuffer();
+
+        console.log('✅ Smart card detection completed successfully');
+        return optimized;
+
+    } catch (error) {
+        console.log('⚠️ Card detection failed, using original image:', error.message);
+        // Fallback: Verwende original Bild wenn Erkennung fehlschlägt
+        return await sharp(imagePath)
+            .normalize() // Zumindest Kontrast optimieren
+            .sharpen()
+            .png()
+            .toBuffer();
+    }
+}
+
 // Convert image to PDF
 async function convertImageToPdf(imagePath, originalName) {
     console.log('Starting image conversion for:', originalName);
     try {
         const pdfDoc = await PDFDocument.create();
         
-        console.log('Converting image to PNG format...');
-        // Erhalte die originale Bildgröße
-        const imageMetadata = await sharp(imagePath).metadata();
-        console.log('Original image size:', { width: imageMetadata.width, height: imageMetadata.height });
+        // Schritt 1: Intelligente Kartenerkennung und Zuschnitt
+        console.log('🤖 Performing smart card detection...');
+        const croppedCardBuffer = await detectAndCropCard(imagePath);
+        
+        console.log('📐 Analyzing cropped card dimensions...');
+        // Analysiere die zugeschnittene Karte
+        const cardImage = sharp(croppedCardBuffer);
+        const cardMetadata = await cardImage.metadata();
+        console.log('Cropped card size:', { width: cardMetadata.width, height: cardMetadata.height });
         
         // Bestimme eine hochauflösende Größe (mindestens 1200px in der längeren Seite)
         const minSize = 1200;
-        const aspectRatio = imageMetadata.width / imageMetadata.height;
+        const aspectRatio = cardMetadata.width / cardMetadata.height;
         let targetWidth, targetHeight;
         
-        if (imageMetadata.width > imageMetadata.height) {
-            targetWidth = Math.max(minSize, imageMetadata.width);
+        if (cardMetadata.width > cardMetadata.height) {
+            targetWidth = Math.max(minSize, cardMetadata.width);
             targetHeight = Math.round(targetWidth / aspectRatio);
         } else {
-            targetHeight = Math.max(minSize, imageMetadata.height);
+            targetHeight = Math.max(minSize, cardMetadata.height);
             targetWidth = Math.round(targetHeight * aspectRatio);
         }
         
-        console.log('Target size for PDF:', { width: targetWidth, height: targetHeight });
+        console.log('📊 Target size for PDF:', { width: targetWidth, height: targetHeight });
         
-        // Konvertiere mit hoher Qualität zu PNG
-        const pngBuffer = await sharp(imagePath)
+        // Finaler Schritt: Hochqualitative PNG-Ausgabe
+        console.log('🎯 Creating high-quality PNG...');
+        const pngBuffer = await sharp(croppedCardBuffer)
             .flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
             .resize(targetWidth, targetHeight, { 
                 fit: 'inside',
