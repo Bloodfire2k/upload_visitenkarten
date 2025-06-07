@@ -58,6 +58,11 @@ async function convertImageToPdf(imagePath, originalName) {
         const imageMetadata = await sharp(imagePath).metadata();
         console.log('Original image size:', { width: imageMetadata.width, height: imageMetadata.height });
         
+        // Prüfe ob es ein sehr dunkles/kontrastArmes Bild ist
+        const { mean } = await sharp(imagePath).grayscale().stats();
+        const isLowContrast = mean < 120; // Dunkles Bild erkannt
+        console.log(`📊 Image brightness analysis: ${mean.toFixed(1)} ${isLowContrast ? '(low contrast detected)' : '(good contrast)'}`);
+        
         // Bestimme eine hochauflösende Größe (mindestens 1200px in der längeren Seite)
         const minSize = 1200;
         const aspectRatio = imageMetadata.width / imageMetadata.height;
@@ -73,8 +78,8 @@ async function convertImageToPdf(imagePath, originalName) {
         
         console.log('📊 Target size for PDF:', { width: targetWidth, height: targetHeight });
         
-        // Einfache, hochqualitative PNG-Ausgabe ohne komplexe Verarbeitung
-        console.log('🎯 Creating clean, high-quality PNG...');
+        // OCR-optimierte Bildverarbeitung für bessere Texterkennung
+        console.log('🎯 Creating OCR-optimized image...');
         const pngBuffer = await sharp(imagePath)
             .flatten({ background: { r: 255, g: 255, b: 255, alpha: 1 } })
             .resize(targetWidth, targetHeight, { 
@@ -82,6 +87,17 @@ async function convertImageToPdf(imagePath, originalName) {
                 withoutEnlargement: false,
                 background: { r: 255, g: 255, b: 255, alpha: 1 }
             })
+            // OCR-spezifische Optimierungen (angepasst an Bildqualität)
+            .modulate({
+                brightness: isLowContrast ? 1.15 : 1.05,  // Mehr Helligkeit bei dunklen Bildern
+                contrast: isLowContrast ? 1.3 : 1.1       // Mehr Kontrast bei schwachen Bildern
+            })
+            .sharpen({
+                sigma: 0.5,        // Leichte Schärfung für bessere Textkanten
+                m1: 1,
+                m2: 2
+            })
+            .median(1)             // Minimales Entrauschen ohne Details zu verlieren
             .png({ 
                 quality: 100,
                 compressionLevel: 0,
