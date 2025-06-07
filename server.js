@@ -45,9 +45,9 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Visitenkarten-Erkennung und Zuschnitt
+// Verbesserte Visitenkarten-Erkennung und Zuschnitt
 async function detectAndCropCard(imagePath) {
-    console.log('🔍 Starting smart card detection...');
+    console.log('🔍 Starting enhanced smart card detection...');
     
     try {
         // Lade das Bild und analysiere es
@@ -55,35 +55,79 @@ async function detectAndCropCard(imagePath) {
         const metadata = await image.metadata();
         console.log('📏 Image dimensions:', { width: metadata.width, height: metadata.height });
 
-        // Schritt 1: Automatisches Trimming (entfernt überschüssigen Hintergrund)
-        console.log('✂️ Performing automatic background removal...');
-        const trimmed = await sharp(imagePath)
-            .trim({
-                background: '#ffffff', // Weißer Hintergrund
-                threshold: 30 // Toleranz für Trimming (niedrigerer Wert = aggressiver)
-            })
-            .png()
-            .toBuffer();
+        // Schritt 1: Mehrere Trimming-Strategien versuchen
+        console.log('✂️ Trying multiple cropping strategies...');
+        
+        let bestResult = null;
+        const strategies = [
+            // Strategie 1: Aggressives Trimming für weiße Hintergründe
+            { background: '#ffffff', threshold: 10, name: 'White background (aggressive)' },
+            // Strategie 2: Moderates Trimming für leicht graue Hintergründe  
+            { background: '#f8f8f8', threshold: 25, name: 'Light gray background' },
+            // Strategie 3: Konservatives Trimming für gemischte Hintergründe
+            { background: '#ffffff', threshold: 50, name: 'White background (conservative)' }
+        ];
 
-        // Schritt 2: Kontrast und Schärfe optimieren
-        console.log('🎨 Optimizing contrast and sharpness...');
-        const optimized = await sharp(trimmed)
+        for (const strategy of strategies) {
+            try {
+                console.log(`🎯 Trying strategy: ${strategy.name}`);
+                const trimmed = await sharp(imagePath)
+                    .trim({
+                        background: strategy.background,
+                        threshold: strategy.threshold
+                    })
+                    .png()
+                    .toBuffer();
+                
+                // Prüfe ob das Ergebnis sinnvoll ist (nicht zu klein)
+                const trimmedMetadata = await sharp(trimmed).metadata();
+                const sizeReduction = (metadata.width * metadata.height) / (trimmedMetadata.width * trimmedMetadata.height);
+                
+                console.log(`📊 Size reduction: ${sizeReduction.toFixed(2)}x, New size: ${trimmedMetadata.width}x${trimmedMetadata.height}`);
+                
+                // Akzeptiere das Ergebnis wenn es zwischen 1.5x und 20x kleiner ist
+                if (sizeReduction >= 1.5 && sizeReduction <= 20) {
+                    console.log(`✅ Strategy "${strategy.name}" successful!`);
+                    bestResult = trimmed;
+                    break;
+                }
+            } catch (strategyError) {
+                console.log(`❌ Strategy "${strategy.name}" failed:`, strategyError.message);
+            }
+        }
+
+        // Fallback: Wenn kein Trimming funktioniert, verwende Original
+        if (!bestResult) {
+            console.log('🔄 All trimming strategies failed, using original with preprocessing...');
+            bestResult = await sharp(imagePath).png().toBuffer();
+        }
+
+        // Schritt 2: Bildoptimierung
+        console.log('🎨 Applying image enhancement...');
+        const enhanced = await sharp(bestResult)
             .normalize() // Automatische Kontrastanpassung
-            .sharpen({ sigma: 1, m1: 1, m2: 2 }) // Schärfung
+            .sharpen({ sigma: 1.5, m1: 1, m2: 2 }) // Stärkere Schärfung
+            .gamma(1.1) // Leichte Gamma-Korrektur
             .png({ quality: 100 })
             .toBuffer();
 
-        console.log('✅ Smart card detection completed successfully');
-        return optimized;
+        console.log('✅ Enhanced smart card detection completed successfully');
+        return enhanced;
 
     } catch (error) {
-        console.log('⚠️ Card detection failed, using original image:', error.message);
-        // Fallback: Verwende original Bild wenn Erkennung fehlschlägt
-        return await sharp(imagePath)
-            .normalize() // Zumindest Kontrast optimieren
-            .sharpen()
-            .png()
-            .toBuffer();
+        console.log('⚠️ Card detection failed completely, using optimized original:', error.message);
+        // Fallback: Verwende original Bild mit Basisoptimierung
+        try {
+            return await sharp(imagePath)
+                .normalize()
+                .sharpen()
+                .gamma(1.1)
+                .png()
+                .toBuffer();
+        } catch (fallbackError) {
+            console.log('❌ Even fallback failed, using raw original');
+            return await sharp(imagePath).png().toBuffer();
+        }
     }
 }
 
