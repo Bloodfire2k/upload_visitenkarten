@@ -260,9 +260,39 @@
             const totalFiles = files.length;
             let uploadedFiles = 0;
 
-            for (const file of files) {
+            // Funktion für animierten Progress während Upload
+            function animateProgress(startPercent, targetPercent, duration = 2000) {
+                const startTime = Date.now();
+                const progressDiff = targetPercent - startPercent;
+                
+                function updateProgress() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Easing function für smoothe Animation
+                    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                    const currentPercent = startPercent + (progressDiff * easeOutQuart);
+                    
+                    progressBar.style.width = `${currentPercent}%`;
+                    progressText.textContent = `${Math.round(currentPercent)}%`;
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(updateProgress);
+                    }
+                }
+                
+                requestAnimationFrame(updateProgress);
+            }
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const formData = new FormData();
                 formData.append('document', file);
+
+                // Starte Animation zum nächsten Ziel (aber nicht ganz, um Platz für Upload-Fortschritt zu lassen)
+                const startPercent = (i / totalFiles) * 100;
+                const processingPercent = ((i + 0.8) / totalFiles) * 100;
+                animateProgress(startPercent, processingPercent, 1500);
 
                 try {
                     const response = await fetch('/api/upload', {
@@ -276,9 +306,15 @@
                     }
                     
                     uploadedFiles++;
-                    const percent = (uploadedFiles / totalFiles) * 100;
-                    progressBar.style.width = `${percent}%`;
-                    progressText.textContent = `${Math.round(percent)}%`;
+                    const finalPercent = (uploadedFiles / totalFiles) * 100;
+                    
+                    // Kurze Animation zum finalen Prozentsatz
+                    animateProgress(processingPercent, finalPercent, 300);
+                    
+                    // Kurze Pause zwischen den Dateien für bessere UX
+                    if (i < files.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
                 } catch (error) {
                     console.error('Upload error:', error);
                     showError(`Fehler beim Hochladen von ${file.name}: ${error.message}`);
