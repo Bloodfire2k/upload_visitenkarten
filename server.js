@@ -160,7 +160,12 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             // Create form data for Paperless-ngx
             const formData = new FormData();
             const filePath = isImage ? pdfPath : req.file.path;
-            const fileName = isImage ? req.file.originalname.replace(/\.[^/.]+$/, '.pdf') : req.file.originalname;
+            
+            // Verwende Original-Dateinamen um Paperless-Regeln zu triggern
+            const originalBaseName = req.file.originalname.replace(/\.[^/.]+$/, ""); // Entferne Dateierweiterung
+            const fileName = isImage ? `${originalBaseName}.pdf` : req.file.originalname;
+            
+            console.log('📝 Using original filename to trigger Paperless rules:', fileName);
 
             // Überprüfe die Datei vor dem Upload
             if (!fs.existsSync(filePath)) {
@@ -182,8 +187,11 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD Format
             formData.append('created', today);
             
-            // Optional: Tags hinzufügen (falls gewünscht)
-            // formData.append('tags', 'visitenkarte,upload');
+            // Keinen Eigentümer setzen (wie bei direkten Scans)
+            formData.append('owner', '');
+            
+            // Tags werden automatisch durch Paperless-Regeln gesetzt
+            // formData.append('tags', 'Visitenkarte');
             
             console.log('📅 Setting explicit creation date for N8N compatibility:', today);
 
