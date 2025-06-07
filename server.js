@@ -174,8 +174,18 @@ app.post('/api/upload', upload.single('document'), async (req, res) => {
             });
 
             const fileStream = fs.createReadStream(filePath);
-            // Benutze den gleichen Schlüssel wie in der React-App
+            
+            // Hauptdokument
             formData.append('document', fileStream, fileName);
+            
+            // Explizit das heutige Datum als Eingangsdatum setzen (für N8N-Kompatibilität)
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD Format
+            formData.append('created', today);
+            
+            // Optional: Tags hinzufügen (falls gewünscht)
+            // formData.append('tags', 'visitenkarte,upload');
+            
+            console.log('📅 Setting explicit creation date for N8N compatibility:', today);
 
             // Log request details
             console.log('Request details:', {
