@@ -60,9 +60,31 @@
             border-color: var(--primary-color);
             background: linear-gradient(135deg, rgba(43, 100, 177, 0.02) 0%, rgba(66, 133, 209, 0.05) 100%);
         }
+        
+        /* Testversion Banner */
+        .test-banner {
+            position: fixed;
+            top: 20px;
+            right: -50px;
+            background: linear-gradient(45deg, #ff6b6b, #ffa500);
+            color: white;
+            padding: 8px 60px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transform: rotate(45deg);
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.3);
+            letter-spacing: 1px;
+            pointer-events: none;
+        }
     </style>
-</head>
+    </head>
 <body class="gradient-bg">
+    <!-- Testversion Banner -->
+    <div class="test-banner">Testversion</div>
+    
     <div class="container mx-auto px-4 py-8 relative z-10">
         <div class="max-w-xl mx-auto">
             <!-- Header mit Firmenfarbe -->
