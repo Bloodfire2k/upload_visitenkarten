@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitenkarten Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drag-active {
+            border-color: #4F46E5;
+            background-color: #EEF2FF;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-xl mx-auto">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">Visitenkarten Upload</h1>
+            
+            <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                <div class="space-y-4">
+                    <div class="flex justify-center">
+                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <div class="text-gray-600">
+                        <label class="cursor-pointer">
+                            <span class="text-indigo-600 hover:text-indigo-500">Dateien auswählen</span>
+                            <span class="text-gray-500"> oder hierher ziehen</span>
+                            <input type="file" class="hidden" id="fileInput" multiple accept="image/*,.pdf">
+                        </label>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        Unterstützte Formate: JPG, PNG, HEIC, HEIF, WEBP, PDF
+                    </div>
+                </div>
+            </div>
+
+            <div id="preview" class="mt-8 space-y-4 hidden">
+                <h2 class="text-lg font-semibold text-gray-900">Ausgewählte Dateien:</h2>
+                <ul id="fileList" class="space-y-2"></ul>
+                
+                <button id="uploadButton" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                    Hochladen
+                </button>
+            </div>
+
+            <div id="progress" class="mt-8 hidden">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-600 mt-2 text-center">0%</p>
+            </div>
+
+            <!-- Error message container -->
+            <div id="errorContainer" class="mt-4 hidden">
+                <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p id="errorText" class="text-sm text-red-700">
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const fileList = document.getElementById('fileList');
+        const uploadButton = document.getElementById('uploadButton');
+        const progress = document.getElementById('progress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorText = document.getElementById('errorText');
+
+        let files = [];
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorContainer.classList.remove('hidden');
+            setTimeout(() => {
+                errorContainer.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Drag & Drop Handlers
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('drag-active');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('drag-active');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-active');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // File Input Handler
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(newFiles) {
+            files = Array.from(newFiles);
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            files.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-3 bg-white rounded-lg shadow-sm';
+                li.innerHTML = `
+                    <span class="text-gray-700">${file.name}</span>
+                    <button onclick="removeFile(${index})" class="text-red-500 hover:text-red-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                `;
+                fileList.appendChild(li);
+            });
+
+            preview.classList.toggle('hidden', files.length === 0);
+        }
+
+        function removeFile(index) {
+            files.splice(index, 1);
+            updateFileList();
+        }
+
+        uploadButton.addEventListener('click', async () => {
+            if (files.length === 0) return;
+
+            progress.classList.remove('hidden');
+            uploadButton.disabled = true;
+            uploadButton.classList.add('opacity-50');
+            errorContainer.classList.add('hidden');
+
+            const totalFiles = files.length;
+            let uploadedFiles = 0;
+
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('document', file);
+
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || errorData.details || 'Upload fehlgeschlagen');
+                    }
+                    
+                    uploadedFiles++;
+                    const percent = (uploadedFiles / totalFiles) * 100;
+                    progressBar.style.width = `${percent}%`;
+                    progressText.textContent = `${Math.round(percent)}%`;
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showError(`Fehler beim Hochladen von ${file.name}: ${error.message}`);
+                }
+            }
+
+            // Reset after upload
+            files = [];
+            updateFileList();
+            uploadButton.disabled = false;
+            uploadButton.classList.remove('opacity-50');
+            setTimeout(() => {
+                progress.classList.add('hidden');
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+            }, 2000);
+        });
+    </script>
+</body>
+</html> 
